@@ -1,0 +1,53 @@
+name: pages-build-deployment
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-deploy:
+    name: Build and deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.2
+
+      - name: Install Ruby dependencies
+        run: |
+          gem install bundler
+          bundle config set --local path 'vendor/bundle'
+          if [ -f "Gemfile" ]; then bundle install --jobs 4 --retry 3; fi
+
+      - name: Build site (source = repository root)
+        run: |
+          if [ -f "_config.yml" ] || [ -d "_layouts" ] || [ -d "assets" ]; then
+            if command -v bundle >/dev/null 2>&1 && [ -f "Gemfile" ]; then
+              bundle exec jekyll build --source . --destination ./_site
+            else
+              jekyll build --source . --destination ./_site
+            fi
+          else
+            echo "No Jekyll site files found in repository root; aborting build." && exit 1
+          fi
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: ./_site
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v1
